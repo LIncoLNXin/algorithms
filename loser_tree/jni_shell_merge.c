@@ -189,9 +189,9 @@ int CompareDoc(void* private, void* road1, const int roadk1, const int idx1, voi
 #endif
 
 R_FALSE:
-        if(NULL != scores1)
+        if(NULL != ss1)
                 (*env)->ReleaseDoubleArrayElements(env, scores1, ss1, 0);
-        if(NULL != scores2)
+        if(NULL != ss2)
                 (*env)->ReleaseDoubleArrayElements(env, scores2, ss2, 0);
 #ifdef DEBUG
         gettimeofday(&te, NULL);
@@ -202,9 +202,9 @@ R_FALSE:
         return 0;
 
 R_TRUE:
-        if(NULL != scores1)
+        if(NULL != ss1)
                 (*env)->ReleaseDoubleArrayElements(env, scores1, ss1, 0);
-        if(NULL != scores2)
+        if(NULL != ss2)
                 (*env)->ReleaseDoubleArrayElements(env, scores2, ss2, 0);
 #ifdef DEBUG
         gettimeofday(&te, NULL);
