@@ -34,6 +34,7 @@ typedef struct _Private
 
 static void GetDoc(JNIEnv* env, jobject doc, jstring* id, jdoubleArray* scores)
 {
+        if(NULL == doc) return;
         if(NULL != id)
         {
                 jstring docid = (jstring)(*env)->GetObjectField(env
@@ -77,8 +78,9 @@ void SetResult(void* private, void* road, const int idx)
 
         jstring id = NULL;
         GetDoc(env, doc, &id, NULL);
-
-        (*env)->SetObjectArrayElement(env, (jobjectArray)global->result, global->curidx - global->offset - 1, id);
+        
+        if(NULL != id)
+                (*env)->SetObjectArrayElement(env, (jobjectArray)global->result, global->curidx - global->offset - 1, id);
 #ifdef DEBUG
         gettimeofday(&te, NULL);
         int total = (te.tv_sec - tb.tv_sec) * 1000000 + (te.tv_usec - tb.tv_usec);
@@ -97,6 +99,7 @@ int CompareDoc(void* private, void* road1, const int roadk1, const int idx1, voi
         JNIEnv* env = global->env;
 
         double* s1 = NULL, *s2 = NULL;
+        double* ss1 = NULL, *ss2 = NULL;
         jdoubleArray scores1 = NULL;
         jdoubleArray scores2 = NULL;
 
@@ -112,17 +115,17 @@ int CompareDoc(void* private, void* road1, const int roadk1, const int idx1, voi
 
                 if(NULL != scores1)
                 {
-                        s1 = (*env)->GetDoubleArrayElements(env, scores1, NULL);
+                        ss1 = (*env)->GetDoubleArrayElements(env, scores1, NULL);
 
 #ifdef DEBUG
                 gettimeofday(&te, NULL);
                 total = (te.tv_sec - tb.tv_sec) * 1000000 + (te.tv_usec - tb.tv_usec);
                 global->tc2 += total;
 #endif
-                        if(NULL != s1)
+                        if(NULL != ss1)
                         {
                                 //memmove(global->curscores[roadk1].scores, s1, sizeof(double) * global->dimention);
-                                memcpy(global->curscores[roadk1].scores, s1, sizeof(double) * (*env)->GetArrayLength(env, scores1));
+                                memcpy(global->curscores[roadk1].scores, ss1, sizeof(double) * (*env)->GetArrayLength(env, scores1));
                                 s1 = global->curscores[roadk1].scores;
                         }
                 }
@@ -144,19 +147,19 @@ int CompareDoc(void* private, void* road1, const int roadk1, const int idx1, voi
                 global->tc1 += total;
 #endif
 
-                if(NULL != s2)
+                if(NULL != scores2)
                 {
-                        s2 = (*env)->GetDoubleArrayElements(env, scores2, NULL);
+                        ss2 = (*env)->GetDoubleArrayElements(env, scores2, NULL);
 
 #ifdef DEBUG
                 gettimeofday(&te, NULL);
                 total = (te.tv_sec - tb.tv_sec) * 1000000 + (te.tv_usec - tb.tv_usec);
                 global->tc2 += total;
 #endif
-                        if(NULL == s2)
+                        if(NULL ！= ss2)
                         {
                                 //memmove(global->curscores[roadk2].scores, s2, sizeof(double) * global->dimention);
-                                memcpy(global->curscores[roadk2].scores, s2, sizeof(double) * (*env)->GetArrayLength(env, scores1));
+                                memcpy(global->curscores[roadk2].scores, ss2, sizeof(double) * (*env)->GetArrayLength(env, scores2));
                                 s2 = global->curscores[roadk2].scores;
                         }
                 }
@@ -187,9 +190,9 @@ int CompareDoc(void* private, void* road1, const int roadk1, const int idx1, voi
 
 R_FALSE:
         if(NULL != scores1)
-                (*env)->ReleaseDoubleArrayElements(env, scores1, s1, 0);
+                (*env)->ReleaseDoubleArrayElements(env, scores1, ss1, 0);
         if(NULL != scores2)
-                (*env)->ReleaseDoubleArrayElements(env, scores2, s2, 0);
+                (*env)->ReleaseDoubleArrayElements(env, scores2, ss2, 0);
 #ifdef DEBUG
         gettimeofday(&te, NULL);
         total = (te.tv_sec - tb.tv_sec) * 1000000 + (te.tv_usec - tb.tv_usec);
@@ -200,9 +203,9 @@ R_FALSE:
 
 R_TRUE:
         if(NULL != scores1)
-                (*env)->ReleaseDoubleArrayElements(env, scores1, s1, 0);
+                (*env)->ReleaseDoubleArrayElements(env, scores1, ss1, 0);
         if(NULL != scores2)
-                (*env)->ReleaseDoubleArrayElements(env, scores2, s2, 0);
+                (*env)->ReleaseDoubleArrayElements(env, scores2, ss2, 0);
 #ifdef DEBUG
         gettimeofday(&te, NULL);
         total = (te.tv_sec - tb.tv_sec) * 1000000 + (te.tv_usec - tb.tv_usec);
@@ -225,6 +228,7 @@ JNIEXPORT jobjectArray JNICALL Java_org_apache_solr_handler_component_jni_JniMer
         if(0 == shardlen) return (*env)->NewObjectArray(env,  0,  (*env)->FindClass(env, "Ljava/lang/String;"), NULL);
 
         LoserTree* t = LoserTree_Create(shardlen, dimention);           // need destroy
+        if(NULL == t) return (*env)->NewObjectArray(env,  0,  (*env)->FindClass(env, "Ljava/lang/String;"), NULL);
         LoserTree_SetCallBack(t, SetResult, CompareDoc);
 
         int i;
@@ -266,7 +270,15 @@ JNIEXPORT jobjectArray JNICALL Java_org_apache_solr_handler_component_jni_JniMer
 
         // cache cur scores
         private.curscores = (CurScores*)malloc(sizeof(double) * shardlen * dimention + sizeof(CurScores) * shardlen);
-        if(private.curscores) memset(private.curscores, 0, sizeof(double) * shardlen * dimention + sizeof(CurScores) * shardlen);
+        if(private.curscores) 
+        ｛
+                memset(private.curscores, 0, sizeof(double) * shardlen * dimention + sizeof(CurScores) * shardlen);
+        ｝
+        else
+        {
+                LoserTree_Destroy(t);
+                return (*env)->NewObjectArray(env,  0,  (*env)->FindClass(env, "Ljava/lang/String;"), NULL);
+        }
 
         int j;
         for(j = 0; j < shardlen; ++j)
