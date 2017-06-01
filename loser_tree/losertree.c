@@ -47,6 +47,31 @@ void LoserTree_SetRoad(LoserTree* t, void* road, const int roadidx, const int le
         t->roadlen[roadidx] = len;
 }
 
+static void adjustLoserTreeFirst(LoserTree* t, int road, int maxroad)
+{
+        int parent = (road + t->road) >> 1;
+        int tmp = 0;
+        void* roadp = NULL, *roadcur = NULL;
+        while(parent > 0)
+        {
+                roadp = t->kroads[t->lr[parent]];
+                roadcur = t->kroads[road];
+
+                if(road != maxroad && (t->lr[parent] == maxroad || t->curidx[road] >= t->roadlen[road]
+                        || (t->curidx[t->lr[parent]] < t->roadlen[t->lr[parent]]
+                                && t->CompareDoc(t->private, roadp, t->lr[parent], t->curidx[t->lr[parent]], roadcur, road, t->curidx[road])
+                                )
+                        ))
+                {
+                        tmp = t->lr[parent];
+                        t->lr[parent] = road;
+                        road = tmp;
+                }
+                parent >>= 1;
+        }
+
+        t->lr[0] = road;
+}
 static void adjustLoserTree(LoserTree* t, int road)
 {
         int parent = (road + t->road) >> 1;
@@ -81,7 +106,7 @@ static void initLoserTree(LoserTree* t)
         for(i = 1; i < t->road; ++i)
         {
                 road = t->kroads[i];
-				        roadw = t->kroads[winner];
+                roadw = t->kroads[winner];
                 if(t->CompareDoc(t->private, road, i, 0, roadw, winner, 0))
                         winner = i;
         }
@@ -89,9 +114,10 @@ static void initLoserTree(LoserTree* t)
         for(i = 0; i < t->road; ++i)
                 t->lr[i] = winner;
 
+
         for(i = t->road - 1; i >= 0; --i)
         {
-                adjustLoserTree(t, i);
+                adjustLoserTreeFirst(t, i, winner);
         }
 }
 
